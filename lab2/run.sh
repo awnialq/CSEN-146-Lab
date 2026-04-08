@@ -21,4 +21,7 @@ echo "->Multithreaded copy vs single threaded copy..."
 ./1 src_1.dat src_2.dat src_3.dat src_4.dat src_5.dat src_6.dat src_7.dat src_8.dat src_9.dat src_10.dat
 echo``
 rm *.dat*
+echo "----------Part 2-----------"
+gcc 2.c -o 2 -lm
+./2
 echo

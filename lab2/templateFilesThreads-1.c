@@ -42,14 +42,6 @@ int func_copy(char* src_filename, char* dst_filename) {
 	return 0;
 }
 
-// thread function to copy one file
-void* copy_thread(void* arg) {
-	struct copy_struct params = *(struct copy_struct*)arg;  // cast/dereference void* to copy_struct
-	printf("thread[%i] - copying %s to %s\n", params.thread_id, params.src_filename, params.dst_filename);
-	//call file copy function
-	
-	pthread_exit(NULL);
-}
 
 int main(int argc, char* argv[]) {
 	 // check correct usage of arguments in command line

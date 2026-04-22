@@ -11,10 +11,11 @@
 #include <unistd.h>
 #include <arpa/inet.h>
 #include <stdint.h>
+#include <netdb.h>
 
 int main(int argc, char *argv[]){
     if(argc != 4){
-        printf("Usage: %s {server ip} {port #} {file requested}", argv[0]);
+        printf("Usage: %s {server ip} {port #} {file to send}", argv[0]);
         exit(1);
     }
 
@@ -25,7 +26,11 @@ int main(int argc, char *argv[]){
     socklen_t addrLen = sizeof(struct sockaddr);
 
     struct hostent *host;
-    host = (struct hostnet *)gethostbyname(argv[1]);
+    host = gethostbyname(argv[1]);
+    if(host == NULL){
+        perror("Could not resolve host");
+        exit(1);
+    }
 
     if((socketfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0){
         perror("Could not establish socket");
@@ -34,9 +39,29 @@ int main(int argc, char *argv[]){
 
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(atoi(argv[2]));
-    serverAddr.sin_addr = *((struct in_addr *)host->h_addr);
+    memcpy(&serverAddr.sin_addr, host->h_addr_list[0], host->h_length);
 
-    /*
-        Implement file transfer logic here
-    */
+    FILE *src = fopen(argv[3], "r");
+    if(! src){
+        perror("Could not open file");
+        close(socketfd);
+        exit(1);
+    }
+	size_t bytes_read;
+
+	while ((bytes_read = fread(buf, 1, sizeof(buf), src)) > 0) {
+        ssize_t sent = sendto(socketfd, buf, bytes_read, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+        if (sent < 0) {
+            perror("Could not send data");
+            close(socketfd);
+            fclose(src);
+            exit(1);
+        }
+	}
+
+
+    close(socketfd);
+	fclose(src);
+
+    exit(0);
 }

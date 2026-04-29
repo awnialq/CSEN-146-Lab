@@ -14,6 +14,25 @@
 #include <errno.h>
 #include <sys/time.h>
 
+struct packet{
+    int32_t seq_ack;
+    int32_t len;
+    uint8_t data[10];
+    int32_t checksum;
+};
+
+int compute_checksum(struct packet *p){
+    int32_t checksum = 0;
+    uint8_t *ptr = (uint8_t *)p;
+    uint8_t *end = ptr + sizeof(struct packet) - sizeof(int32_t); // don't compute checksum with checksum field
+
+    while(ptr < end){
+        checksum ^= *ptr++;
+    }
+
+    return checksum;
+}
+
 int main(int argc, char *argv[]){
     if(argc != 3){
         printf("Usage: %s {port #} {destination file name}", argv[0]);

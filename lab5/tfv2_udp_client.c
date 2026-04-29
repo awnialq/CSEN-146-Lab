@@ -72,7 +72,7 @@ int main(int argc, char *argv[]){
 
     int socketfd;
 
-    uint8_t buf[256];
+    uint8_t buf[10];
     struct sockaddr_in serverAddr, clientAddr;
     socklen_t addrLen = sizeof(struct sockaddr);
 
@@ -101,36 +101,44 @@ int main(int argc, char *argv[]){
 	size_t bytes_read;
     uint8_t seq_num = 0; // sequence number starts at 0
 
-	while ((bytes_read = fread(buf, 10, sizeof(buf), src)) > 0) {
+    while ((bytes_read = fread(buf, 1, sizeof(buf), src)) > 0) {
         struct packet p;
-        p.seq_ack = seq_num; // set the sequence number for the packet
-        p.len = bytes_read; // how many bytes are in the packet
+        memset(&p, 0, sizeof(p)); // initialize packet once per chunk
+        p.seq_ack = seq_num; 
+        p.len = bytes_read; 
         memcpy(p.data, buf, bytes_read);
-        p.checksum = checksum_creator(&p);
-        ssize_t sent = sendto(socketfd, &p, sizeof(struct packet), 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
-        if (sent < 0) {
-            perror("Could not send data");
-            close(socketfd);
-            fclose(src);
-            exit(1);
-        }
-        
-        int return_value;
 
-        return_value = wait_for_ack_or_timeout(socketfd);
-        if (return_value == 0){
-            printf("Timeout occurred, resending packet sequence number %d\n", seq_num);
-            continue;
-        }
-        
-        struct packet ack;
-        ssize_t num_bytes = recvfrom(socketfd, &ack, sizeof(struct packet), 0, (struct sockaddr *)&serverAddr, &addrLen);
-        
-        if(ack.seq_ack == seq_num && ack.checksum == compute_checksum(&ack)){
-            printf("Received ACK for sequence number %d\n", seq_num);
-        } else {
-            printf("Received wrong/corrupted ACK for seq number %d\n", seq_num);
-            continue;
+        int ack_received = 0;
+        while (!ack_received) {
+            struct packet send_packet = p;
+            send_packet.checksum = checksum_creator(&send_packet);
+            ssize_t sent = sendto(socketfd, &send_packet, sizeof(struct packet), 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+            if (sent < 0) {
+                perror("Could not send data");
+                close(socketfd);
+                fclose(src);
+                exit(1);
+            }
+            
+            int return_value = wait_for_ack_or_timeout(socketfd);
+            if (return_value == 0){
+                printf("Timeout occurred, resending packet sequence number %d\n", seq_num);
+                continue;
+            }
+            
+            struct packet ack;
+            ssize_t num_bytes = recvfrom(socketfd, &ack, sizeof(struct packet), 0, (struct sockaddr *)&serverAddr, &addrLen);
+            
+            if(ack.seq_ack == seq_num && ack.checksum == compute_checksum(&ack)){
+                printf("Received ACK for sequence number %d\n", seq_num);
+                ack_received = 1;
+            } else if(ack.seq_ack != seq_num) {
+                printf("Received ACK with wrong sequence number %d, expected %d\n", ack.seq_ack, seq_num);
+                continue;
+            } else {
+                printf("Received corrupted ACK for sequence number %d\n", seq_num);
+                continue;
+            }
         }
 
         if (seq_num == 0) {

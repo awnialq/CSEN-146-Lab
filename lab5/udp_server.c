@@ -1,7 +1,7 @@
 // Name: Awni AlQuraini
 // Date: 04/22/2026
-// Title: Lab 4 - Part 1
-// Description: UDP server implementation for serving a specific file
+// Title: Lab 5 - Part 1
+// Description: UDP server implementation for serving a specific file w/ Stop and Wait error handling
 
 #include <stdio.h>
 #include <stdlib.h>

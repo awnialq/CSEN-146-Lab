@@ -1,7 +1,7 @@
 // Name: Awni AlQuraini
 // Date: 04/22/2026
-// Title: Lab 4 - Part 2
-// Description: UDP client implementation for requesting a specific file
+// Title: Lab 5 - Part 2
+// Description: UDP client implementation for requesting a specific file with a Stop and Wait error handling
 
 #include <stdio.h>
 #include <stdlib.h>

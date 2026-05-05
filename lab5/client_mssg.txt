@@ -1,3 +1,5 @@
 Hello Server!
 
-My name is Awni AlQuraini and I am just adding length so this file so the amout of packets sent increases a bit.
+This is a test message that I am making longer just to allow for more errors to occur.
+
+Just uset cmp <file1> <file2> and if nothing prints, the data transfer was successful!

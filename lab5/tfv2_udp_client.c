@@ -36,10 +36,19 @@ int compute_checksum(struct packet *p){
 
 int checksum_creator(struct packet *p){
     // randomly decide if you send the actual checksum or not (it favors actually sending the proper one)
-    if(rand() % 10 < 7) {
+    if(rand() % 10 < 9) {
         return compute_checksum(p);
     } else {
         return 0;
+    }
+}
+
+int should_drop_packet(){
+    // randomly decide if you should drop this packet (70% chance of sending, 30% chance of dropping)
+    if(rand() % 10 < 9) {
+        return 0; // don't drop
+    } else {
+        return 1; // drop
     }
 }
 
@@ -56,8 +65,8 @@ int wait_for_ack_or_timeout(int sockfd){
     FD_ZERO(&readfds);
     FD_SET(sockfd, &readfds);
 
-    tv.tv_sec = 1;
-    tv.tv_usec = 0;
+    tv.tv_sec = 0;
+    tv.tv_usec = 250000; // 250 ms timeout
 
     return select(sockfd + 1, &readfds, NULL, NULL, &tv);
 }
@@ -112,12 +121,16 @@ int main(int argc, char *argv[]){
         while (!ack_received) {
             struct packet send_packet = p;
             send_packet.checksum = checksum_creator(&send_packet);
-            ssize_t sent = sendto(socketfd, &send_packet, sizeof(struct packet), 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
-            if (sent < 0) {
-                perror("Could not send data");
-                close(socketfd);
-                fclose(src);
-                exit(1);
+            if (!should_drop_packet()) {
+                ssize_t sent = sendto(socketfd, &send_packet, sizeof(struct packet), 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+                if (sent < 0) {
+                    perror("Could not send data");
+                    close(socketfd);
+                    fclose(src);
+                    exit(1);
+                }
+            } else {
+                printf("Dropped data packet with sequence number %d\n", seq_num);
             }
             
             int return_value = wait_for_ack_or_timeout(socketfd);
@@ -157,10 +170,14 @@ int main(int argc, char *argv[]){
         final_packet.len = 0;
         final_packet.checksum = checksum_creator(&final_packet);
 
-        ssize_t final_sent = sendto(socketfd, &final_packet, sizeof(struct packet), 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
-        if (final_sent < 0) {
-            perror("Could not send final packet");
-            break;
+        if (!should_drop_packet()) {
+            ssize_t final_sent = sendto(socketfd, &final_packet, sizeof(struct packet), 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+            if (final_sent < 0) {
+                perror("Could not send final packet");
+                break;
+            }
+        } else {
+            printf("Dropped final packet with sequence number %d\n", seq_num);
         }
 
         int return_value = wait_for_ack_or_timeout(socketfd);

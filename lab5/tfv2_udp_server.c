@@ -35,7 +35,7 @@ int compute_checksum(struct packet *p){
 
 int checksum_creator(struct packet *p){
     // randomly decide if you send the actual checksum or not (it favors actually sending the proper one)
-    if(rand() % 10 < 7) {
+    if(rand() % 10 < 9) {
         return compute_checksum(p);
     } else {
         return 0;
@@ -44,10 +44,19 @@ int checksum_creator(struct packet *p){
 
 int ack_seq_creator(int seq_num){
     // randomly decide if you send the correct ACK number or the wrong one
-    if(rand() % 10 < 7) {
+    if(rand() % 10 < 9) {
         return seq_num;
     } else {
         return (seq_num == 0) ? 1 : 0;
+    }
+}
+
+int should_drop_packet(){
+    // randomly decide if you should drop this packet (70% chance of sending, 30% chance of dropping)
+    if(rand() % 10 < 9) {
+        return 0; // don't drop
+    } else {
+        return 1; // drop
     }
 }
 
@@ -102,12 +111,16 @@ int main(int argc, char *argv[]){
             ack.seq_ack = ack_seq_creator(p.seq_ack);
             ack.len = 0;
             ack.checksum = checksum_creator(&ack);
-            ssize_t sent = sendto(socketfd, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, addrLen);
-            if (sent < 0) {
-                perror("Could not send ACK for termination packet");
-                close(socketfd);
-                fclose(dst);
-                exit(1);
+            if (!should_drop_packet()) {
+                ssize_t sent = sendto(socketfd, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, addrLen);
+                if (sent < 0) {
+                    perror("Could not send ACK for termination packet");
+                    close(socketfd);
+                    fclose(dst);
+                    exit(1);
+                }
+            } else {
+                printf("Dropped ACK for termination packet\n");
             }
             printf("Received termination packet, closing connection.\n");
             break;
@@ -122,12 +135,16 @@ int main(int argc, char *argv[]){
             ack.seq_ack = ack_seq_creator(seq_num);
             ack.len = 0;
             ack.checksum = checksum_creator(&ack);
-            ssize_t sent = sendto(socketfd, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, addrLen);
-            if (sent < 0) {
-                perror("Could not send ACK");
-                close(socketfd);
-                fclose(dst);
-                exit(1);
+            if (!should_drop_packet()) {
+                ssize_t sent = sendto(socketfd, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, addrLen);
+                if (sent < 0) {
+                    perror("Could not send ACK");
+                    close(socketfd);
+                    fclose(dst);
+                    exit(1);
+                }
+            } else {
+                printf("Dropped ACK for sequence number %d\n", seq_num);
             }
             
             // change sequence number to the next expected one
@@ -143,12 +160,16 @@ int main(int argc, char *argv[]){
             ack.seq_ack = (seq_num == 0) ? 1 : 0;
             ack.len = 0;
             ack.checksum = checksum_creator(&ack);
-            ssize_t sent = sendto(socketfd, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, addrLen);
-            if (sent < 0) {
-                perror("Could not resend ACK");
-                close(socketfd);
-                fclose(dst);
-                exit(1);
+            if (!should_drop_packet()) {
+                ssize_t sent = sendto(socketfd, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, addrLen);
+                if (sent < 0) {
+                    perror("Could not resend ACK");
+                    close(socketfd);
+                    fclose(dst);
+                    exit(1);
+                }
+            } else {
+                printf("Dropped ACK for duplicate packet\n");
             }
         } else {
             printf("Received corrupted packet with sequence number %d\n", p.seq_ack);
@@ -157,12 +178,16 @@ int main(int argc, char *argv[]){
             ack.seq_ack = (seq_num == 0) ? 1 : 0; // repeat the last valid ACK number
             ack.len = 0;
             ack.checksum = checksum_creator(&ack);
-            ssize_t sent = sendto(socketfd, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, addrLen);
-            if (sent < 0) {
-                perror("Could not resend ACK");
-                close(socketfd);
-                fclose(dst);
-                exit(1);
+            if (!should_drop_packet()) {
+                ssize_t sent = sendto(socketfd, &ack, sizeof(ack), 0, (struct sockaddr *)&clientAddr, addrLen);
+                if (sent < 0) {
+                    perror("Could not resend ACK");
+                    close(socketfd);
+                    fclose(dst);
+                    exit(1);
+                }
+            } else {
+                printf("Dropped ACK for corrupted packet\n");
             }
         }
     }

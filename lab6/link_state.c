@@ -48,15 +48,19 @@ pthread_mutex_t	lock;
 // print costs 
 void print_costs (void)
 {
-	printf("costs:\n");
-	for(int i = 0; i < N; i++)
+	int i, j;
+
+	pthread_mutex_lock (&lock);
+	printf ("router %d costs:\n", myid);
+	for (i = 0; i < nodes; i++)
 	{
-		for(int j = 0; j < N; j++)
+		for (j = 0; j < nodes; j++)
 		{
 			printf("%d | ", costs[i][j]);
 		}
 		printf("\n");
 	}
+	pthread_mutex_unlock (&lock);
 }
 
 // receive info
@@ -64,17 +68,17 @@ void * receive_info (void *arg)
 {
 	//Code to receive info and update costs
 	int packet[3];
-	int id, cost;
+	int src, dst, cost;
 	while (1)
 	{
 		recvfrom (sock, packet, sizeof (packet), 0, (struct sockaddr *)&otheraddr, &addr_size);
-		id = ntohl (packet[0]);
-		id = ntohl (packet[1]);
+		src = ntohl (packet[0]);
+		dst = ntohl (packet[1]);
 		cost = ntohl (packet[2]);
 
 		pthread_mutex_lock (&lock);
-		costs[myid][id] = cost;
-		costs[id][myid] = cost;
+		costs[src][dst] = cost;
+		costs[dst][src] = cost;
 		pthread_mutex_unlock (&lock);
 		print_costs ();
 	}
@@ -91,7 +95,7 @@ void * run_link_state (void *arg)
 
 	while (1)
 	{
-		r = rand () % 10;
+		r = 10 + (rand () % 11);
 		sleep (r);
 	
 		for (i = 0; i < N; i++)
@@ -111,6 +115,7 @@ void * run_link_state (void *arg)
 				if (taken[j] == 0  &&  distances[j] < min)
 				{
 					min = distances[j];
+				spot = -1;
 					spot = j;
 				}
 			}
@@ -118,6 +123,13 @@ void * run_link_state (void *arg)
 		
 			
 			// recalculate distances
+
+				if (spot == -1)
+				{
+					break;
+				}
+
+				taken[spot] = 1;
 			for (j = 0; j < N; j++)
 			{
 				if (taken[j] == 0)
@@ -129,7 +141,7 @@ void * run_link_state (void *arg)
 			}
 		}
 
-		printf ("new distances:\n");
+		printf ("router %d shortest distances:\n", myid);
 		for (i = 0; i < N; i++)
 			printf ("%d ", distances[i]);
 		printf ("\n");
@@ -223,15 +235,20 @@ int main (int argc, char *argv[])
 	pthread_create (&thr1, NULL, receive_info, NULL);
 	pthread_create (&thr2, NULL, run_link_state, NULL);
 
-	// read changes from the keyboard
-	for (i = 0; i < 3; i++)
+	// read changes from the keyboard every 10 seconds
+	while (1)
 	{
-		printf ("any changes? ");
-		scanf ("%d%d", &id, &cost);
+		printf ("router %d any changes? ", myid);
+		if (scanf ("%d %d", &id, &cost) != 2)
+		{
+			printf ("invalid input\n");
+			continue;
+		}
+
 		if (id >= N  ||  id == myid)
 		{
 			printf ("wrong id\n");
-			break;
+			continue;
 		}
 
 		pthread_mutex_lock (&lock);
@@ -256,8 +273,7 @@ int main (int argc, char *argv[])
 			}
 		}
 		printf ("sent\n");
+		sleep (10);
 	}
-
-	sleep (20);
  return 0;
 }

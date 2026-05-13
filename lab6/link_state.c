@@ -48,15 +48,36 @@ pthread_mutex_t	lock;
 // print costs 
 void print_costs (void)
 {
-	// print costs
-
+	printf("costs:\n");
+	for(int i = 0; i < N; i++)
+	{
+		for(int j = 0; j < N; j++)
+		{
+			printf("%d | ", costs[i][j]);
+		}
+		printf("\n");
+	}
 }
 
 // receive info
 void * receive_info (void *arg)
 {
 	//Code to receive info and update costs
+	int packet[3];
+	int id, cost;
+	while (1)
+	{
+		recvfrom (sock, packet, sizeof (packet), 0, (struct sockaddr *)&otheraddr, &addr_size);
+		id = ntohl (packet[0]);
+		id = ntohl (packet[1]);
+		cost = ntohl (packet[2]);
 
+		pthread_mutex_lock (&lock);
+		costs[myid][id] = cost;
+		costs[id][myid] = cost;
+		pthread_mutex_unlock (&lock);
+		print_costs ();
+	}
 
 }
 
@@ -85,7 +106,14 @@ void * run_link_state (void *arg)
 		for (i = 1; i < N; i++)
 		{
 			// find closest node
-			
+			min = INFINITE;
+			for (j = 0; j < N; j++){
+				if (taken[j] == 0  &&  distances[j] < min)
+				{
+					min = distances[j];
+					spot = j;
+				}
+			}
 	
 		
 			
